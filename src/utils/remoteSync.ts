@@ -22,6 +22,18 @@ const getHeaders = (prefer?: string) => ({
   ...(prefer ? { Prefer: prefer } : {}),
 });
 
+const getRemoteError = async (response: Response, action: string) => {
+  let detail = "";
+  try {
+    const body = await response.text();
+    detail = body ? ` ${body.slice(0, 120)}` : "";
+  } catch {
+    detail = "";
+  }
+
+  return new Error(`${action} ${response.status}.${detail}`);
+};
+
 export const loadRemoteRecords = async (): Promise<RemotePayload> => {
   if (!isRemoteSyncEnabled) return { records: [] };
 
@@ -29,7 +41,7 @@ export const loadRemoteRecords = async (): Promise<RemotePayload> => {
     headers: getHeaders(),
   });
 
-  if (!response.ok) throw new Error("Cannot load remote check-in data");
+  if (!response.ok) throw await getRemoteError(response, "Supabase load failed");
 
   const rows = (await response.json()) as Array<{ records?: CheckinRecord[]; updated_at?: string }>;
   const row = rows[0];
@@ -52,5 +64,5 @@ export const saveRemoteRecords = async (records: CheckinRecord[]) => {
     }),
   });
 
-  if (!response.ok) throw new Error("Cannot save remote check-in data");
+  if (!response.ok) throw await getRemoteError(response, "Supabase save failed");
 };

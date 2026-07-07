@@ -81,8 +81,8 @@ export default function App() {
               setToast("Da dua du lieu len kho chung.");
               return;
             }
-          } catch {
-            setToast("Chua ket noi duoc kho du lieu chung.");
+          } catch (error) {
+            setToast(error instanceof Error ? error.message : "Chua ket noi duoc kho du lieu chung.");
           }
         }
 
@@ -142,7 +142,7 @@ export default function App() {
     recordsRef.current = nextRecords;
 
     if (options.remote !== false && isRemoteSyncEnabled) {
-      void saveRemoteRecords(nextRecords).catch(() => setToast("Chua dong bo duoc du lieu chung."));
+      void saveRemoteRecords(nextRecords).catch((error) => setToast(error instanceof Error ? error.message : "Chua dong bo duoc du lieu chung."));
     }
   };
 
