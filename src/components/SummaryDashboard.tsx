@@ -152,7 +152,58 @@ export default function SummaryDashboard({ role, records, onReset, onUpdateProfi
     setTransferVehicle("");
   };
 
-  if (!canViewReport(role)) return <EmptyState title="Bạn không có quyền xem báo cáo." />;
+  const appendActionNote = (member: CheckinRecord, action: string) => {
+    const previousNote = String(member.Ghi_chu_noi_bo || "").trim();
+    const nextLine = `${new Date().toLocaleString("vi-VN")} | Admin: ${action}`;
+    return previousNote ? `${previousNote}\n${nextLine}` : nextLine;
+  };
+
+  const clearIssueFields = {
+    Loai_phat_sinh: "",
+    Trang_thai_phat_sinh: "",
+    Xe_de_xuat: "",
+    Thoi_gian_phat_sinh: "",
+    Nguoi_bao_phat_sinh: "",
+  };
+
+  const resolveIssue = (member: CheckinRecord, action: "transfer" | "not_going" | "done" | "dismiss") => {
+    if (action === "dismiss") {
+      onUpdateProfile(String(member.Checkin_ID), {
+        ...clearIssueFields,
+        Ghi_chu_noi_bo: appendActionNote(member, "Bo bao phat sinh"),
+      });
+      return;
+    }
+
+    if (action === "transfer") {
+      const vehicle = String(member.Xe_de_xuat || "").trim();
+      if (!vehicle) return;
+      onUpdateProfile(String(member.Checkin_ID), {
+        ["Nh\u00f3m_xe"]: vehicle,
+        ["C\u00f3_\u0111i_xe"]: !isSelfTravelVehicle(vehicle),
+        Trang_thai_phat_sinh: "\u0110\u00e3 x\u1eed l\u00fd",
+        Ghi_chu_noi_bo: appendActionNote(member, `Da dieu chuyen sang xe ${vehicle}`),
+      });
+      return;
+    }
+
+    if (action === "not_going") {
+      onUpdateProfile(String(member.Checkin_ID), {
+        ["Nh\u00f3m_xe"]: "T\u1ef1 t\u00fac - Kh\u00f4ng \u0111i",
+        ["C\u00f3_\u0111i_xe"]: false,
+        Trang_thai_phat_sinh: "\u0110\u00e3 x\u1eed l\u00fd",
+        Ghi_chu_noi_bo: appendActionNote(member, "Xac nhan khong di nua"),
+      });
+      return;
+    }
+
+    onUpdateProfile(String(member.Checkin_ID), {
+      Trang_thai_phat_sinh: "\u0110\u00e3 x\u1eed l\u00fd",
+      Ghi_chu_noi_bo: appendActionNote(member, `Da xu ly: ${issueLabel(member.Loai_phat_sinh)}`),
+    });
+  };
+
+  if (!canViewReport(role)) return <EmptyState title="B\u1ea1n kh\u00f4ng c\u00f3 quy\u1ec1n xem b\u00e1o c\u00e1o." />;
 
   return (
     <section className="space-y-5">
@@ -331,7 +382,7 @@ export default function SummaryDashboard({ role, records, onReset, onUpdateProfi
                                     {visibleMembers
                                       .filter((member) => member.Trang_thai_phat_sinh)
                                       .map((member) => {
-                                        const pendingIssue = member.Trang_thai_phat_sinh === "Chờ Admin xử lý";
+                                        const pendingIssue = toSearchText(member.Trang_thai_phat_sinh).includes("admin") && !toSearchText(member.Trang_thai_phat_sinh).includes("da xu ly");
                                         return (
                                           <div
                                             key={`issue-${member.Checkin_ID}`}
@@ -347,16 +398,36 @@ export default function SummaryDashboard({ role, records, onReset, onUpdateProfi
                                               </span>
                                               <span>{member.Trang_thai_phat_sinh}</span>
                                               {pendingIssue ? (
-                                                <button
-                                                  onClick={() =>
-                                                    onUpdateProfile(String(member.Checkin_ID), {
-                                                      Trang_thai_phat_sinh: "Đã xử lý",
-                                                    })
-                                                  }
-                                                  className="rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
-                                                >
-                                                  Đã xử lý
-                                                </button>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {member.Loai_phat_sinh === "transfer" && member.Xe_de_xuat ? (
+                                                    <button
+                                                      onClick={() => resolveIssue(member, "transfer")}
+                                                      className="rounded-md bg-blue-600 px-2 py-1 text-[10px] font-black uppercase text-white hover:bg-blue-700"
+                                                    >
+                                                      Chuyển xe
+                                                    </button>
+                                                  ) : null}
+                                                  {member.Loai_phat_sinh === "not_going" ? (
+                                                    <button
+                                                      onClick={() => resolveIssue(member, "not_going")}
+                                                      className="rounded-md bg-rose-600 px-2 py-1 text-[10px] font-black uppercase text-white hover:bg-rose-700"
+                                                    >
+                                                      Không đi nữa
+                                                    </button>
+                                                  ) : null}
+                                                  <button
+                                                    onClick={() => resolveIssue(member, "done")}
+                                                    className="rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
+                                                  >
+                                                    Đã xử lý
+                                                  </button>
+                                                  <button
+                                                    onClick={() => resolveIssue(member, "dismiss")}
+                                                    className="rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                                                  >
+                                                    Bỏ báo
+                                                  </button>
+                                                </div>
                                               ) : null}
                                             </div>
                                             {member.Ghi_chu_noi_bo ? <div className="mt-1 line-clamp-2 font-semibold opacity-80">{member.Ghi_chu_noi_bo}</div> : null}
