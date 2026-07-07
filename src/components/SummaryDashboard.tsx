@@ -1,9 +1,9 @@
-import { AlertTriangle, Bus, ChevronDown, Eye, RotateCcw, UserRound } from "lucide-react";
+import { AlertTriangle, Bell, Bus, CheckCircle2, ChevronDown, Clock, CopyCheck, Eye, PhoneCall, RotateCcw, UserRound, CircleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { activities } from "../config/activities";
 import { Role, canResetData, canViewReport } from "../config/permissions";
-import { CheckinRecord } from "../types/checkin";
-import { getActivityStats, getVehicleStats, normalizeBoolean } from "../utils/checkin";
+import { ActivityConfig, CheckinRecord } from "../types/checkin";
+import { getActivityStats, getApplicableRecords, getVehicleStats, isCheckedIn, normalizeBoolean } from "../utils/checkin";
 import { percentText, toSearchText } from "../utils/format";
 import EmptyState from "./EmptyState";
 
@@ -14,6 +14,7 @@ type Props = {
 };
 
 type VehicleRow = ReturnType<typeof getVehicleStats>[number];
+type DetailFilter = "all" | "done" | "missing";
 
 type VehicleGroup = {
   label: string;
@@ -47,13 +48,20 @@ const buildVehicleGroups = (rows: VehicleRow[]): VehicleGroup[] => {
     .filter((group) => group.rows.length > 0);
 };
 
+const getVehicleMembers = (records: CheckinRecord[], vehicle: string, activity: ActivityConfig) =>
+  getApplicableRecords(records.filter((record) => String(record.Nhóm_xe || "") === vehicle), activity);
+
+const getLeaders = (records: CheckinRecord[], vehicle: string) =>
+  records.filter((record) => String(record.Nhóm_xe || "") === vehicle && normalizeBoolean(record.Truong_xe));
+
 const getLeaderNames = (records: CheckinRecord[], vehicle: string) => {
-  const names = records
-    .filter((record) => String(record.Nhóm_xe || "") === vehicle && normalizeBoolean(record.Truong_xe))
+  const names = getLeaders(records, vehicle)
     .map((record) => String(record.Họ_và_tên || "").trim())
     .filter(Boolean);
   return names.length ? names.join(", ") : "Chưa gán";
 };
+
+const getLeaderPhone = (records: CheckinRecord[], vehicle: string) => String(getLeaders(records, vehicle)[0]?.SĐT || "").trim();
 
 const getGroupLeaderSummary = (records: CheckinRecord[], rows: VehicleRow[]) => {
   const vehicles = new Set(rows.map((row) => row.vehicle));
@@ -67,10 +75,17 @@ const getGroupLeaderSummary = (records: CheckinRecord[], rows: VehicleRow[]) => 
   return `Trưởng xe: ${leaders.slice(0, 2).join(", ")} +${leaders.length - 2}`;
 };
 
+const statusMeta = (checked: boolean) =>
+  checked
+    ? { label: "Đã check-in", icon: CheckCircle2, className: "text-emerald-600 bg-emerald-50" }
+    : { label: "Chưa check-in", icon: CircleAlert, className: "text-rose-600 bg-rose-50" };
+
 export default function SummaryDashboard({ role, records, onReset }: Props) {
   const [activityId, setActivityId] = useState(activities[0].id);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [detailFilter, setDetailFilter] = useState<DetailFilter>("all");
+  const [copiedPhone, setCopiedPhone] = useState("");
   const activity = activities.find((item) => item.id === activityId) || activities[0];
   const vehicleStats = useMemo(() => getVehicleStats(records, activity), [records, activity]);
   const vehicleGroups = useMemo(() => buildVehicleGroups(vehicleStats), [vehicleStats]);
@@ -83,6 +98,18 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((current) => ({ ...current, [label]: !current[label] }));
+  };
+
+  const copyPhone = async (phone: string) => {
+    if (!phone) return;
+    await navigator.clipboard.writeText(phone);
+    setCopiedPhone(phone);
+    window.setTimeout(() => setCopiedPhone(""), 1200);
+  };
+
+  const remindMissing = (vehicle: string) => {
+    const missing = getVehicleMembers(records, vehicle, activity).filter((member) => !isCheckedIn(member, activity));
+    window.alert(`Cần nhắc ${missing.length} người chưa check-in trên xe ${vehicle}.`);
   };
 
   if (!canViewReport(role)) return <EmptyState title="Bạn không có quyền xem báo cáo." />;
@@ -113,6 +140,7 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
               onClick={() => {
                 setActivityId(item.id);
                 setSelectedVehicle("");
+                setDetailFilter("all");
               }}
               className={`rounded-lg border p-4 text-left transition ${
                 activityId === item.id ? "border-blue-600 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-200"
@@ -167,6 +195,15 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                     <div className="divide-y divide-slate-100 p-2">
                       {group.rows.map((row) => {
                         const selected = selectedVehicle === row.vehicle;
+                        const leaderPhone = getLeaderPhone(records, row.vehicle);
+                        const members = getVehicleMembers(records, row.vehicle, activity);
+                        const visibleMembers = members.filter((member) => {
+                          const checked = isCheckedIn(member, activity);
+                          if (detailFilter === "done") return checked;
+                          if (detailFilter === "missing") return !checked;
+                          return true;
+                        });
+
                         return (
                           <div key={row.vehicle} className={`rounded-md px-2 py-3 ${selected ? "bg-blue-50" : ""}`}>
                             <div className="flex items-center justify-between gap-3">
@@ -181,7 +218,10 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                 </div>
                               </div>
                               <button
-                                onClick={() => setSelectedVehicle(selected ? "" : row.vehicle)}
+                                onClick={() => {
+                                  setSelectedVehicle(selected ? "" : row.vehicle);
+                                  setDetailFilter("all");
+                                }}
                                 className={`inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
                                   selected ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"
                                 }`}
@@ -190,10 +230,98 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                 {selected ? "Đang xem" : "Xem chi tiết"}
                               </button>
                             </div>
+
                             {selected ? (
-                              <p className="mt-2 pl-6 text-xs font-semibold text-slate-600">
-                                Tổng {row.total} · Đã {row.checked} · Thiếu {row.missing} · {percentText(row.percent)}
-                              </p>
+                              <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 p-3">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-black text-slate-950">{row.vehicle}</p>
+                                    <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-semibold text-slate-500">
+                                      Trưởng xe: {getLeaderNames(records, row.vehicle)}
+                                      <button
+                                        onClick={() => copyPhone(leaderPhone)}
+                                        disabled={!leaderPhone}
+                                        title={leaderPhone ? "Copy SĐT trưởng xe" : "Chưa có SĐT trưởng xe"}
+                                        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:text-slate-300"
+                                      >
+                                        {copiedPhone === leaderPhone ? <CopyCheck className="h-3.5 w-3.5 text-emerald-600" /> : <PhoneCall className="h-3.5 w-3.5" />}
+                                      </button>
+                                      · Tổng {members.length} người
+                                    </p>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                      onClick={() => remindMissing(row.vehicle)}
+                                      className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100"
+                                    >
+                                      <Bell className="h-3.5 w-3.5" />
+                                      Nhắc nhở
+                                    </button>
+                                    {[
+                                      ["all", "Tất cả"],
+                                      ["done", "Đã check-in"],
+                                      ["missing", "Chưa check-in"],
+                                    ].map(([key, label]) => (
+                                      <button
+                                        key={key}
+                                        onClick={() => setDetailFilter(key as DetailFilter)}
+                                        className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+                                          detailFilter === key ? "bg-blue-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                                        }`}
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead className="border-b bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-400">
+                                      <tr>
+                                        <th className="p-3 text-left">Nhân viên</th>
+                                        <th className="p-3 text-center">Liên hệ</th>
+                                        <th className="p-3 text-center">Trạng thái</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {visibleMembers.map((member) => {
+                                        const checked = isCheckedIn(member, activity);
+                                        const meta = statusMeta(checked);
+                                        const StatusIcon = meta.icon || Clock;
+                                        const phone = String(member.SĐT || "").trim();
+
+                                        return (
+                                          <tr key={member.Checkin_ID} className="transition hover:bg-blue-50/60">
+                                            <td className="p-3">
+                                              <div className="font-bold text-slate-800">{member.Họ_và_tên || "Chưa có tên"}</div>
+                                              <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                                MS: {member.Mã_NV || "Chưa có mã"} · {member.Điểm_đón || "Chưa có điểm đón"}
+                                              </div>
+                                            </td>
+                                            <td className="p-3 text-center">
+                                              <button
+                                                onClick={() => copyPhone(phone)}
+                                                disabled={!phone}
+                                                title={phone ? "Copy SĐT" : "Chưa có SĐT"}
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:text-slate-300"
+                                              >
+                                                {copiedPhone === phone ? <CopyCheck className="h-4 w-4 text-emerald-600" /> : <PhoneCall className="h-4 w-4" />}
+                                              </button>
+                                            </td>
+                                            <td className="p-3 text-center">
+                                              <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${meta.className}`} title={meta.label}>
+                                                <StatusIcon className="h-4 w-4" />
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
                             ) : null}
                           </div>
                         );
