@@ -57,7 +57,8 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("uploadDatabase") !== "1") return;
+    const forceUpload = params.get("uploadDatabase") === "1";
+    if (!forceUpload && records.length > 0) return;
 
     const uploadBundledDatabase = async () => {
       try {
@@ -67,17 +68,19 @@ export default function App() {
         persistRecords(result.records);
         setSelectedActivityId(undefined);
         saveSelectedActivity(undefined);
-        params.delete("uploadDatabase");
-        const nextUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
-        window.history.replaceState({}, "", nextUrl);
-        setToast(result.warning || `Đã upload database: ${result.records.length} dòng.`);
+        if (forceUpload) {
+          params.delete("uploadDatabase");
+          const nextUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+          window.history.replaceState({}, "", nextUrl);
+        }
+        setToast(result.warning || `Da tai du lieu: ${result.records.length} dong.`);
       } catch {
-        setToast("Không upload được database.");
+        if (forceUpload) setToast("Khong upload duoc database.");
       }
     };
 
     uploadBundledDatabase();
-    // This one-shot importer is intentionally tied to the current URL.
+    // Auto-load the bundled database for first-time visitors on the deployed site.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
