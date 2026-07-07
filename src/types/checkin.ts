@@ -9,6 +9,7 @@ export type CheckinRecord = {
   Đơn_vị?: string;
   Nhóm_xe?: string;
   Có_đi_xe?: boolean;
+  Truong_xe?: boolean;
   Người_checkin?: string;
   Nguoi_checkin_cuoi?: string;
   Lan_checkin_cuoi?: string;

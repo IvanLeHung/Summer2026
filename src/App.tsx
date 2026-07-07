@@ -252,6 +252,7 @@ export default function App() {
         <UserCheckin
           phone={userPhone}
           people={userRecords}
+          allRecords={activeRecords}
           onCheckIn={handleUserCheckIn}
           onChangePhone={changeUserPhone}
           currentTime={effectiveNow}

@@ -13,6 +13,7 @@ const emptyCheckinColumns: Record<string, unknown> = {
   TG_len_xe_ve: "",
   DD_trưa_13_7: false,
   TG_trưa_13_7: "",
+  Truong_xe: false,
   Nguoi_checkin_cuoi: "",
   Lan_checkin_cuoi: "",
   Ghi_chu_noi_bo: "",
@@ -32,6 +33,7 @@ const isSelfTravel = (record: CheckinRecord) => normalizeVehicleGroup(record.Nh�
 
 const booleanFields = new Set([
   "Có_đi_xe",
+  "Truong_xe",
   ...activities.map((activity) => activity.checkField),
   ...activities.map((activity) => activity.mealField).filter(Boolean),
 ]);

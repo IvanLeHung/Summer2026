@@ -10,10 +10,12 @@ import {
 } from "../utils/checkin";
 import { formatCheckinTime } from "../utils/format";
 import EmptyState from "./EmptyState";
+import LeaderVehiclePanel from "./LeaderVehiclePanel";
 
 type Props = {
   phone: string;
   people: CheckinRecord[];
+  allRecords: CheckinRecord[];
   onCheckIn: (personId: string, activity: ActivityConfig) => void;
   onChangePhone: () => void;
   currentTime?: Date;
@@ -102,7 +104,7 @@ const toDisplayName = (name?: string, fallback?: string) => {
   return shortName.charAt(0).toLocaleUpperCase("vi-VN") + shortName.slice(1).toLocaleLowerCase("vi-VN");
 };
 
-export default function UserCheckin({ phone, people, onCheckIn, onChangePhone, currentTime = new Date(), uatMode = false }: Props) {
+export default function UserCheckin({ phone, people, allRecords, onCheckIn, onChangePhone, currentTime = new Date(), uatMode = false }: Props) {
   if (!people.length) {
     return (
       <section className="space-y-4">
@@ -117,6 +119,8 @@ export default function UserCheckin({ phone, people, onCheckIn, onChangePhone, c
       </section>
     );
   }
+
+  const leaderRecords = people.filter((person) => Boolean(person.Truong_xe));
 
   return (
     <section className="space-y-4">
@@ -151,6 +155,8 @@ export default function UserCheckin({ phone, people, onCheckIn, onChangePhone, c
           </div>
         </div>
       </div>
+
+      {leaderRecords.length ? <LeaderVehiclePanel leaders={leaderRecords} records={allRecords} /> : null}
 
       {people.map((person) => {
         const personActivities = getApplicableActivitiesForRecord(person);
