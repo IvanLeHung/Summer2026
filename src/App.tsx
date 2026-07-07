@@ -73,17 +73,17 @@ export default function App() {
             const remote = await loadRemoteRecords();
             if (remote.records.length > 0) {
               persistRecords(remote.records, { remote: false });
-              setToast("Da dong bo du lieu chung.");
+              setToast("Dữ liệu đã được đồng bộ");
               return;
             }
 
             if (records.length > 0) {
               await saveRemoteRecords(records);
-              setToast("Da dua du lieu len kho chung.");
+              setToast("Dữ liệu đã được đồng bộ");
               return;
             }
           } catch (error) {
-            setToast(error instanceof Error ? error.message : "Chua ket noi duoc kho du lieu chung.");
+            setToast(error instanceof Error ? error.message : "Đồng bộ dữ liệu bị gián đoạn");
           }
         }
 
@@ -102,7 +102,7 @@ export default function App() {
         }
         setToast(result.warning || `Da tai du lieu: ${result.records.length} dong.`);
       } catch {
-        if (forceUpload) setToast("Khong upload duoc database.");
+        if (forceUpload) setToast("Lỗi upload database");
       }
     };
 
