@@ -42,6 +42,12 @@ export const saveUserPhone = (phone?: string) => {
   else localStorage.removeItem(USER_PHONE_KEY);
 };
 
+export const clearSavedAccessState = () => {
+  localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(USER_PHONE_KEY);
+  localStorage.removeItem(ACTIVITY_KEY);
+};
+
 export const loadUatMode = () => localStorage.getItem(UAT_MODE_KEY) === "1";
 
 export const saveUatMode = (enabled: boolean) => {

@@ -15,29 +15,25 @@ import { cancelCheckInRecord, checkInRecord, ensureCheckinColumns, findRecordsBy
 import { exportExcel, importExcel, importExcelBuffer } from "./utils/excel";
 import { isRemoteSyncEnabled, loadRemoteRecords, saveRemoteRecords } from "./utils/remoteSync";
 import {
+  clearSavedAccessState,
   loadRecords,
-  loadRole,
-  loadSelectedActivity,
   loadUatMode,
   loadUatNow,
-  loadUserPhone,
   saveRecords,
-  saveRole,
   saveSelectedActivity,
   saveUatMode,
   saveUatNow,
-  saveUserPhone,
 } from "./utils/storage";
 
 export default function App() {
   const [records, setRecords] = useState<CheckinRecord[]>(() => loadRecords());
   const [uatRecords, setUatRecords] = useState<CheckinRecord[]>(() => loadRecords());
-  const [role, setRole] = useState<Role>(() => loadRole());
-  const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>(() => loadSelectedActivity());
+  const [role, setRole] = useState<Role>("staff");
+  const [selectedActivityId, setSelectedActivityId] = useState<string | undefined>();
   const [showPin, setShowPin] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [pendingCheckinId, setPendingCheckinId] = useState<string | undefined>();
-  const [userPhone, setUserPhone] = useState(() => loadUserPhone());
+  const [userPhone, setUserPhone] = useState("");
   const [uatMode, setUatMode] = useState(() => loadUatMode());
   const [uatNow, setUatNow] = useState(() => loadUatNow());
   const [toast, setToast] = useState("");
@@ -60,6 +56,10 @@ export default function App() {
   useEffect(() => {
     recordsRef.current = records;
   }, [records]);
+
+  useEffect(() => {
+    clearSavedAccessState();
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -157,14 +157,14 @@ export default function App() {
 
   const enterAdmin = () => {
     setRole("admin");
-    saveRole("admin");
+    setUserPhone("");
     setShowPin(false);
     setToast("Đã vào Admin.");
   };
 
   const logoutAdmin = () => {
     setRole("staff");
-    saveRole("staff");
+    setUserPhone("");
     setSelectedActivityId(undefined);
     saveSelectedActivity(undefined);
     setShowReport(false);
@@ -222,7 +222,6 @@ export default function App() {
   const handleUserPhoneSubmit = (phone: string) => {
     const normalized = phone.trim();
     setUserPhone(normalized);
-    saveUserPhone(normalized);
     if (!findRecordsByPhone(activeRecords, normalized).length) {
       setToast("Không tìm thấy thông tin phù hợp với số điện thoại này.");
     }
@@ -230,7 +229,6 @@ export default function App() {
 
   const changeUserPhone = () => {
     setUserPhone("");
-    saveUserPhone(undefined);
   };
 
   const handleUserCheckIn = (personId: string, activity: ActivityConfig) => {
