@@ -214,6 +214,14 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                   <span className="mt-0.5 flex items-center gap-1 truncate text-xs font-semibold text-slate-500">
                                     <UserRound className="h-3.5 w-3.5 shrink-0" />
                                     Trưởng xe: {getLeaderNames(records, row.vehicle)}
+                                    <button
+                                      onClick={() => copyPhone(leaderPhone)}
+                                      disabled={!leaderPhone}
+                                      title={leaderPhone ? "Copy SĐT trưởng xe" : "Chưa có SĐT trưởng xe"}
+                                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:text-slate-300"
+                                    >
+                                      {copiedPhone === leaderPhone ? <CopyCheck className="h-3.5 w-3.5 text-emerald-600" /> : <PhoneCall className="h-3.5 w-3.5" />}
+                                    </button>
                                   </span>
                                 </div>
                               </div>
