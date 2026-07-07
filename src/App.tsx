@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ActivitySelector from "./components/ActivitySelector";
 import AdminPanel from "./components/AdminPanel";
+import AdminIssueQueue from "./components/AdminIssueQueue";
 import EmptyState from "./components/EmptyState";
 import PinModal from "./components/PinModal";
 import QuickCheckin from "./components/QuickCheckin";
@@ -354,7 +355,12 @@ export default function App() {
       );
     }
 
-    return <ActivitySelector records={activeRecords} onSelect={selectActivity} currentTime={effectiveNow} />;
+    return (
+      <section className="space-y-4">
+        <AdminIssueQueue records={activeRecords} onUpdateProfile={handleUpdateProfile} />
+        <ActivitySelector records={activeRecords} onSelect={selectActivity} currentTime={effectiveNow} />
+      </section>
+    );
   };
 
   return (
