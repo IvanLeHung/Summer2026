@@ -259,6 +259,11 @@ export default function App() {
     setToast(uatMode ? "UAT: đã cập nhật hồ sơ trên bản test." : "Đã cập nhật hồ sơ.");
   };
 
+  const handleLeaderReportIssue = (id: string, updates: Partial<CheckinRecord>) => {
+    persistActiveRecords(activeRecords.map((record) => (String(record.Checkin_ID) === id ? { ...record, ...updates } : record)));
+    setToast(uatMode ? "UAT: da ghi nhan phat sinh tren ban test." : "Da gui bao cao phat sinh cho Admin.");
+  };
+
   const handleReset = () => {
     const resetRecords = activeRecords.map((record) => {
       const next: CheckinRecord = { ...record };
@@ -313,6 +318,7 @@ export default function App() {
           people={userRecords}
           allRecords={activeRecords}
           onCheckIn={handleUserCheckIn}
+          onReportIssue={handleLeaderReportIssue}
           onChangePhone={changeUserPhone}
           currentTime={effectiveNow}
           uatMode={uatMode}

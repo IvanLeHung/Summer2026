@@ -17,6 +17,7 @@ type Props = {
   people: CheckinRecord[];
   allRecords: CheckinRecord[];
   onCheckIn: (personId: string, activity: ActivityConfig) => void;
+  onReportIssue: (personId: string, updates: Partial<CheckinRecord>) => void;
   onChangePhone: () => void;
   currentTime?: Date;
   uatMode?: boolean;
@@ -104,7 +105,7 @@ const toDisplayName = (name?: string, fallback?: string) => {
   return shortName.charAt(0).toLocaleUpperCase("vi-VN") + shortName.slice(1).toLocaleLowerCase("vi-VN");
 };
 
-export default function UserCheckin({ phone, people, allRecords, onCheckIn, onChangePhone, currentTime = new Date(), uatMode = false }: Props) {
+export default function UserCheckin({ phone, people, allRecords, onCheckIn, onReportIssue, onChangePhone, currentTime = new Date(), uatMode = false }: Props) {
   if (!people.length) {
     return (
       <section className="space-y-4">
@@ -156,7 +157,7 @@ export default function UserCheckin({ phone, people, allRecords, onCheckIn, onCh
         </div>
       </div>
 
-      {leaderRecords.length ? <LeaderVehiclePanel leaders={leaderRecords} records={allRecords} /> : null}
+      {leaderRecords.length ? <LeaderVehiclePanel leaders={leaderRecords} records={allRecords} onReportIssue={onReportIssue} /> : null}
 
       {people.map((person) => {
         const personActivities = getApplicableActivitiesForRecord(person);

@@ -17,6 +17,18 @@ type Props = {
 type VehicleRow = ReturnType<typeof getVehicleStats>[number];
 type DetailFilter = "all" | "done" | "missing";
 
+const issueLabels: Record<string, string> = {
+  transfer: "Báo điều chuyển",
+  not_going: "Báo không đi nữa",
+  meal: "Phát sinh ăn uống",
+  lodging: "Phát sinh lưu trú",
+  late_missing: "Đến muộn / chưa thấy người",
+  health: "Sức khỏe / cần hỗ trợ",
+  other: "Phát sinh khác",
+};
+
+const issueLabel = (value?: string) => (value ? issueLabels[value] || value : "Phát sinh");
+
 type VehicleGroup = {
   label: string;
   rows: VehicleRow[];
@@ -313,6 +325,46 @@ export default function SummaryDashboard({ role, records, onReset, onUpdateProfi
                                     ))}
                                   </div>
                                 </div>
+
+                                {visibleMembers.some((member) => member.Trang_thai_phat_sinh) ? (
+                                  <div className="mb-3 space-y-2">
+                                    {visibleMembers
+                                      .filter((member) => member.Trang_thai_phat_sinh)
+                                      .map((member) => {
+                                        const pendingIssue = member.Trang_thai_phat_sinh === "Chờ Admin xử lý";
+                                        return (
+                                          <div
+                                            key={`issue-${member.Checkin_ID}`}
+                                            className={`rounded-lg border p-3 text-xs font-bold ${
+                                              pendingIssue ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                            }`}
+                                          >
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                              <span className="inline-flex items-center gap-1">
+                                                <CircleAlert className="h-3.5 w-3.5" />
+                                                {member["Họ_và_tên"] || "Chưa có tên"}: {issueLabel(member.Loai_phat_sinh)}
+                                                {member.Xe_de_xuat ? ` - Xe đề xuất: ${member.Xe_de_xuat}` : ""}
+                                              </span>
+                                              <span>{member.Trang_thai_phat_sinh}</span>
+                                              {pendingIssue ? (
+                                                <button
+                                                  onClick={() =>
+                                                    onUpdateProfile(String(member.Checkin_ID), {
+                                                      Trang_thai_phat_sinh: "Đã xử lý",
+                                                    })
+                                                  }
+                                                  className="rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
+                                                >
+                                                  Đã xử lý
+                                                </button>
+                                              ) : null}
+                                            </div>
+                                            {member.Ghi_chu_noi_bo ? <div className="mt-1 line-clamp-2 font-semibold opacity-80">{member.Ghi_chu_noi_bo}</div> : null}
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                ) : null}
 
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
