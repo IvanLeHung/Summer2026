@@ -1,10 +1,10 @@
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, Bus, ChevronDown, Eye, RotateCcw, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { activities } from "../config/activities";
 import { Role, canResetData, canViewReport } from "../config/permissions";
 import { CheckinRecord } from "../types/checkin";
-import { getActivityStats, getVehicleStats } from "../utils/checkin";
-import { percentText } from "../utils/format";
+import { getActivityStats, getVehicleStats, normalizeBoolean } from "../utils/checkin";
+import { percentText, toSearchText } from "../utils/format";
 import EmptyState from "./EmptyState";
 
 type Props = {
@@ -13,20 +13,76 @@ type Props = {
   onReset: () => void;
 };
 
+type VehicleRow = ReturnType<typeof getVehicleStats>[number];
+
+type VehicleGroup = {
+  label: string;
+  rows: VehicleRow[];
+};
+
+const vehicleGroupLabel = (vehicle: string) => {
+  const normalized = toSearchText(vehicle);
+  if (normalized.includes("khach") || normalized.includes("bld") || normalized.includes("pv") || normalized.includes("dsea") || normalized.includes("dstyle")) {
+    return "Xe sự kiện";
+  }
+  if (normalized.startsWith("bg") || normalized.startsWith("dk") || normalized.startsWith("th") || normalized.startsWith("tq")) {
+    return "Xe ngoại tỉnh";
+  }
+  if (normalized.includes("tu tuc") || normalized.includes("tự túc")) {
+    return "Tự túc";
+  }
+  return "Xe nội bộ";
+};
+
+const buildVehicleGroups = (rows: VehicleRow[]): VehicleGroup[] => {
+  const grouped = rows.reduce<Record<string, VehicleRow[]>>((groups, row) => {
+    const label = vehicleGroupLabel(row.vehicle);
+    groups[label] = groups[label] || [];
+    groups[label].push(row);
+    return groups;
+  }, {});
+
+  return ["Xe sự kiện", "Xe nội bộ", "Xe ngoại tỉnh", "Tự túc"]
+    .map((label) => ({ label, rows: grouped[label] || [] }))
+    .filter((group) => group.rows.length > 0);
+};
+
+const getLeaderNames = (records: CheckinRecord[], vehicle: string) => {
+  const names = records
+    .filter((record) => String(record.Nhóm_xe || "") === vehicle && normalizeBoolean(record.Truong_xe))
+    .map((record) => String(record.Họ_và_tên || "").trim())
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "Chưa gán";
+};
+
+const getGroupLeaderSummary = (records: CheckinRecord[], rows: VehicleRow[]) => {
+  const vehicles = new Set(rows.map((row) => row.vehicle));
+  const leaders = records
+    .filter((record) => vehicles.has(String(record.Nhóm_xe || "")) && normalizeBoolean(record.Truong_xe))
+    .map((record) => String(record.Họ_và_tên || "").trim())
+    .filter(Boolean);
+
+  if (!leaders.length) return "Chưa gán trưởng xe";
+  if (leaders.length <= 2) return `Trưởng xe: ${leaders.join(", ")}`;
+  return `Trưởng xe: ${leaders.slice(0, 2).join(", ")} +${leaders.length - 2}`;
+};
+
 export default function SummaryDashboard({ role, records, onReset }: Props) {
   const [activityId, setActivityId] = useState(activities[0].id);
-  const [vehicle, setVehicle] = useState("Tất cả");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [selectedVehicle, setSelectedVehicle] = useState("");
   const activity = activities.find((item) => item.id === activityId) || activities[0];
-  const vehicles = useMemo(
-    () => ["Tất cả", ...Array.from(new Set(records.map((record) => String(record.Nhóm_xe || "Chưa có nhóm xe"))))],
-    [records],
-  );
-  const vehicleStats = getVehicleStats(records, activity).filter((row) => vehicle === "Tất cả" || row.vehicle === vehicle);
+  const vehicleStats = useMemo(() => getVehicleStats(records, activity), [records, activity]);
+  const vehicleGroups = useMemo(() => buildVehicleGroups(vehicleStats), [vehicleStats]);
 
   const reset = () => {
     if (!window.confirm("Xác nhận lần 1: reset toàn bộ dữ liệu check-in?")) return;
     if (!window.confirm("Xác nhận lần 2: thao tác này sẽ xóa trạng thái điểm danh hiện tại.")) return;
     onReset();
+  };
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((current) => ({ ...current, [label]: !current[label] }));
   };
 
   if (!canViewReport(role)) return <EmptyState title="Bạn không có quyền xem báo cáo." />;
@@ -35,8 +91,8 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold text-stone-950">Báo cáo tổng hợp</h2>
-          <p className="mt-1 text-sm text-stone-600">Theo hoạt động và nhóm xe.</p>
+          <h2 className="text-xl font-extrabold text-slate-950">Báo cáo tổng hợp</h2>
+          <p className="mt-1 text-sm text-slate-600">Theo hoạt động và nhóm xe.</p>
         </div>
         {canResetData(role) ? (
           <button onClick={reset} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-bold text-white">
@@ -54,46 +110,99 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
           return (
             <button
               key={item.id}
-              onClick={() => setActivityId(item.id)}
-              className={`rounded-lg border p-4 text-left ${activityId === item.id ? "border-brand-600 bg-brand-50" : "border-stone-200 bg-white"}`}
+              onClick={() => {
+                setActivityId(item.id);
+                setSelectedVehicle("");
+              }}
+              className={`rounded-lg border p-4 text-left transition ${
+                activityId === item.id ? "border-blue-600 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-200"
+              }`}
             >
-              <p className="font-extrabold text-stone-950">{item.shortLabel}</p>
-              <p className="mt-2 text-sm text-stone-600">Tổng {stats.total} · Đã {stats.checked} · Thiếu {stats.missing}</p>
-              <div className="mt-3 h-2 rounded-full bg-stone-200">
-                <div className="h-2 rounded-full bg-brand-600" style={{ width: `${stats.percent}%` }} />
-              </div>
-              <p className="mt-2 text-sm font-bold text-brand-700">{percentText(stats.percent)}</p>
+              <p className="font-extrabold text-slate-950">{item.shortLabel}</p>
+              <p className="mt-2 text-sm text-slate-600">Tổng {stats.total} · Đã {stats.checked} · Thiếu {stats.missing}</p>
+              <p className="mt-2 text-sm font-bold text-blue-700">{percentText(stats.percent)}</p>
             </button>
           );
         })}
       </div>
 
-      <div className="rounded-lg border border-stone-200 bg-white p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="mr-auto font-extrabold text-stone-950">Theo nhóm xe: {activity.label}</p>
-          <div className="flex max-w-full gap-2 overflow-x-auto">
-            {vehicles.map((item) => (
-              <button
-                key={item}
-                onClick={() => setVehicle(item)}
-                className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-semibold ${vehicle === item ? "border-brand-600 bg-brand-600 text-white" : "border-stone-300"}`}
-              >
-                {item}
-              </button>
-            ))}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-extrabold text-slate-950">Theo nhóm xe: {activity.label}</p>
+            <p className="mt-1 text-sm text-slate-500">Mặc định thu gọn, mở nhóm xe cần kiểm tra.</p>
           </div>
+          {selectedVehicle ? (
+            <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+              Đang xem: {selectedVehicle}
+            </span>
+          ) : null}
         </div>
+
         <div className="mt-4 space-y-3">
-          {vehicleStats.length ? (
-            vehicleStats.map((row) => (
-              <div key={row.vehicle} className="rounded-lg bg-stone-50 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-bold text-stone-950">{row.vehicle}</p>
-                  <p className="text-sm font-bold text-brand-700">{percentText(row.percent)}</p>
+          {vehicleGroups.length ? (
+            vehicleGroups.map((group) => {
+              const open = Boolean(expandedGroups[group.label]);
+              return (
+                <div key={group.label} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <button
+                    onClick={() => toggleGroup(group.label)}
+                    className="flex w-full items-center justify-between gap-3 bg-slate-50 p-4 text-left transition hover:bg-slate-100"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                        <Bus className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="truncate font-bold text-slate-900">{group.label}</h3>
+                        <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                          {group.rows.length} xe · {getGroupLeaderSummary(records, group.rows)}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {open ? (
+                    <div className="divide-y divide-slate-100 p-2">
+                      {group.rows.map((row) => {
+                        const selected = selectedVehicle === row.vehicle;
+                        return (
+                          <div key={row.vehicle} className={`rounded-md px-2 py-3 ${selected ? "bg-blue-50" : ""}`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <Bus className="h-4 w-4 shrink-0 text-slate-400" />
+                                <div className="min-w-0">
+                                  <span className="block truncate text-sm font-bold text-slate-800">{row.vehicle}</span>
+                                  <span className="mt-0.5 flex items-center gap-1 truncate text-xs font-semibold text-slate-500">
+                                    <UserRound className="h-3.5 w-3.5 shrink-0" />
+                                    Trưởng xe: {getLeaderNames(records, row.vehicle)}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setSelectedVehicle(selected ? "" : row.vehicle)}
+                                className={`inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                                  selected ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                }`}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                {selected ? "Đang xem" : "Xem chi tiết"}
+                              </button>
+                            </div>
+                            {selected ? (
+                              <p className="mt-2 pl-6 text-xs font-semibold text-slate-600">
+                                Tổng {row.total} · Đã {row.checked} · Thiếu {row.missing} · {percentText(row.percent)}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
-                <p className="mt-1 text-sm text-stone-600">Tổng {row.total} · Đã {row.checked} · Thiếu {row.missing}</p>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">
               <AlertTriangle className="h-4 w-4" />
