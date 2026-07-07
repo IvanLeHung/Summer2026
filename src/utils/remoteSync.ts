@@ -1,9 +1,14 @@
 import { CheckinRecord } from "../types/checkin";
 import { ensureCheckinColumns } from "./checkin";
 
-const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || "")
+  .trim()
+  .replace(/\/rest\/v1\/?$/, "")
+  .replace(/\/$/, "");
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || "");
-const SUPABASE_TABLE = String(import.meta.env.VITE_SUPABASE_TABLE || "checkin_state");
+const SUPABASE_TABLE = String(import.meta.env.VITE_SUPABASE_TABLE || "checkin_state")
+  .trim()
+  .replace(/^public\./, "");
 const STATE_KEY = "records";
 
 type RemotePayload = {
