@@ -1,4 +1,4 @@
-import { ArrowLeft, ListFilter, QrCode } from "lucide-react";
+import { ArrowLeft, QrCode } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Role } from "../config/permissions";
 import { ActivityConfig, CheckinRecord } from "../types/checkin";
@@ -8,6 +8,7 @@ import EmptyState from "./EmptyState";
 import FilterChips from "./FilterChips";
 import PersonCard from "./PersonCard";
 import SearchBox from "./SearchBox";
+import VehicleCombobox from "./VehicleCombobox";
 
 type Props = {
   records: CheckinRecord[];
@@ -67,21 +68,7 @@ export default function QuickCheckin({ records, activity, role, onBack, onCheckI
       </div>
 
       {useDropdownFilter ? (
-        <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-          <ListFilter className="h-4 w-4 text-slate-500" />
-          <span className="text-xs font-black uppercase tracking-wide text-slate-500">Nhóm xe</span>
-          <select
-            value={vehicleFilter}
-            onChange={(event) => setVehicleFilter(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-sm font-bold text-slate-800 outline-none"
-          >
-            {chips.map((chip) => (
-              <option key={chip} value={chip}>
-                {chip}
-              </option>
-            ))}
-          </select>
-        </label>
+        <VehicleCombobox options={chips} value={vehicleFilter} onChange={setVehicleFilter} />
       ) : (
         <FilterChips chips={chips} active={vehicleFilter} onChange={setVehicleFilter} />
       )}
