@@ -1,4 +1,4 @@
-import { AlertTriangle, Bell, Bus, CheckCircle2, ChevronDown, Clock, CopyCheck, Eye, PhoneCall, RotateCcw, UserRound, CircleAlert } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, Bell, Bus, Check, CheckCircle2, ChevronDown, Clock, CopyCheck, Eye, PhoneCall, RotateCcw, UserRound, X, CircleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { activities } from "../config/activities";
 import { Role, canResetData, canViewReport } from "../config/permissions";
@@ -11,6 +11,7 @@ type Props = {
   role: Role;
   records: CheckinRecord[];
   onReset: () => void;
+  onUpdateProfile: (id: string, updates: Partial<CheckinRecord>) => void;
 };
 
 type VehicleRow = ReturnType<typeof getVehicleStats>[number];
@@ -80,15 +81,26 @@ const statusMeta = (checked: boolean) =>
     ? { label: "Đã check-in", icon: CheckCircle2, className: "text-emerald-600 bg-emerald-50" }
     : { label: "Chưa check-in", icon: CircleAlert, className: "text-rose-600 bg-rose-50" };
 
-export default function SummaryDashboard({ role, records, onReset }: Props) {
+const isSelfTravelVehicle = (vehicle: string) => {
+  const normalized = toSearchText(vehicle);
+  return normalized.includes("tu tuc") || normalized.includes("tự túc");
+};
+
+export default function SummaryDashboard({ role, records, onReset, onUpdateProfile }: Props) {
   const [activityId, setActivityId] = useState(activities[0].id);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [detailFilter, setDetailFilter] = useState<DetailFilter>("all");
   const [copiedPhone, setCopiedPhone] = useState("");
+  const [transferPersonId, setTransferPersonId] = useState("");
+  const [transferVehicle, setTransferVehicle] = useState("");
   const activity = activities.find((item) => item.id === activityId) || activities[0];
   const vehicleStats = useMemo(() => getVehicleStats(records, activity), [records, activity]);
   const vehicleGroups = useMemo(() => buildVehicleGroups(vehicleStats), [vehicleStats]);
+  const vehicleOptions = useMemo(
+    () => Array.from(new Set(records.map((record) => String(record.Nhóm_xe || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi")),
+    [records],
+  );
 
   const reset = () => {
     if (!window.confirm("Xác nhận lần 1: reset toàn bộ dữ liệu check-in?")) return;
@@ -110,6 +122,22 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
   const remindMissing = (vehicle: string) => {
     const missing = getVehicleMembers(records, vehicle, activity).filter((member) => !isCheckedIn(member, activity));
     window.alert(`Cần nhắc ${missing.length} người chưa check-in trên xe ${vehicle}.`);
+  };
+
+  const startTransfer = (member: CheckinRecord) => {
+    setTransferPersonId(String(member.Checkin_ID));
+    setTransferVehicle(String(member.Nhóm_xe || ""));
+  };
+
+  const confirmTransfer = (member: CheckinRecord) => {
+    const vehicle = transferVehicle.trim();
+    if (!vehicle) return;
+    onUpdateProfile(String(member.Checkin_ID), {
+      Nhóm_xe: vehicle,
+      Có_đi_xe: !isSelfTravelVehicle(vehicle),
+    });
+    setTransferPersonId("");
+    setTransferVehicle("");
   };
 
   if (!canViewReport(role)) return <EmptyState title="Bạn không có quyền xem báo cáo." />;
@@ -141,6 +169,7 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                 setActivityId(item.id);
                 setSelectedVehicle("");
                 setDetailFilter("all");
+                setTransferPersonId("");
               }}
               className={`rounded-lg border p-4 text-left transition ${
                 activityId === item.id ? "border-blue-600 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-200"
@@ -229,6 +258,7 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                 onClick={() => {
                                   setSelectedVehicle(selected ? "" : row.vehicle);
                                   setDetailFilter("all");
+                                  setTransferPersonId("");
                                 }}
                                 className={`inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition ${
                                   selected ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"
@@ -291,6 +321,7 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                         <th className="p-3 text-left">Nhân viên</th>
                                         <th className="p-3 text-center">Liên hệ</th>
                                         <th className="p-3 text-center">Trạng thái</th>
+                                        <th className="p-3 text-center">Điều chuyển</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -299,6 +330,7 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                         const meta = statusMeta(checked);
                                         const StatusIcon = meta.icon || Clock;
                                         const phone = String(member.SĐT || "").trim();
+                                        const transferring = transferPersonId === String(member.Checkin_ID);
 
                                         return (
                                           <tr key={member.Checkin_ID} className="transition hover:bg-blue-50/60">
@@ -322,6 +354,45 @@ export default function SummaryDashboard({ role, records, onReset }: Props) {
                                               <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${meta.className}`} title={meta.label}>
                                                 <StatusIcon className="h-4 w-4" />
                                               </span>
+                                            </td>
+                                            <td className="p-3 text-center">
+                                              {transferring ? (
+                                                <div className="flex min-w-56 items-center justify-end gap-1">
+                                                  <select
+                                                    value={transferVehicle}
+                                                    onChange={(event) => setTransferVehicle(event.target.value)}
+                                                    className="h-9 min-w-32 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                                  >
+                                                    {vehicleOptions.map((vehicle) => (
+                                                      <option key={vehicle} value={vehicle}>
+                                                        {vehicle}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                  <button
+                                                    onClick={() => confirmTransfer(member)}
+                                                    title="Lưu điều chuyển"
+                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                                                  >
+                                                    <Check className="h-4 w-4" />
+                                                  </button>
+                                                  <button
+                                                    onClick={() => setTransferPersonId("")}
+                                                    title="Hủy"
+                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                                                  >
+                                                    <X className="h-4 w-4" />
+                                                  </button>
+                                                </div>
+                                              ) : (
+                                                <button
+                                                  onClick={() => startTransfer(member)}
+                                                  className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                                                >
+                                                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                  Điều chuyển
+                                                </button>
+                                              )}
                                             </td>
                                           </tr>
                                         );

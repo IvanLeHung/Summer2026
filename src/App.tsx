@@ -263,7 +263,7 @@ export default function App() {
 
     if (showReport) {
       return role === "admin" ? (
-        <SummaryDashboard role={role} records={activeRecords} onReset={handleReset} />
+        <SummaryDashboard role={role} records={activeRecords} onReset={handleReset} onUpdateProfile={handleUpdateProfile} />
       ) : (
         <EmptyState title="Bạn không có quyền xem báo cáo." />
       );
