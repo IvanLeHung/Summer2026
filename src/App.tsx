@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ActivitySelector from "./components/ActivitySelector";
 import AdminPanel from "./components/AdminPanel";
 import EmptyState from "./components/EmptyState";
@@ -13,6 +13,7 @@ import { Role } from "./config/permissions";
 import { ActivityConfig, CheckinRecord } from "./types/checkin";
 import { cancelCheckInRecord, checkInRecord, ensureCheckinColumns, findRecordsByPhone, getActivityWindowStatus, isActivityOpen } from "./utils/checkin";
 import { exportExcel, importExcel, importExcelBuffer } from "./utils/excel";
+import { isRemoteSyncEnabled, loadRemoteRecords, saveRemoteRecords } from "./utils/remoteSync";
 import {
   loadRecords,
   loadRole,
@@ -40,6 +41,7 @@ export default function App() {
   const [uatMode, setUatMode] = useState(() => loadUatMode());
   const [uatNow, setUatNow] = useState(() => loadUatNow());
   const [toast, setToast] = useState("");
+  const recordsRef = useRef(records);
   const selectedActivity = useMemo(() => getActivityById(selectedActivityId), [selectedActivityId]);
   const activeRecords = uatMode ? uatRecords : records;
   const effectiveNow = uatMode && uatNow ? new Date(uatNow) : new Date();
@@ -56,12 +58,36 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const forceUpload = params.get("uploadDatabase") === "1";
-    if (!forceUpload && records.length > 0) return;
 
     const uploadBundledDatabase = async () => {
       try {
+        if (isRemoteSyncEnabled && !forceUpload) {
+          try {
+            const remote = await loadRemoteRecords();
+            if (remote.records.length > 0) {
+              persistRecords(remote.records, { remote: false });
+              setToast("Da dong bo du lieu chung.");
+              return;
+            }
+
+            if (records.length > 0) {
+              await saveRemoteRecords(records);
+              setToast("Da dua du lieu len kho chung.");
+              return;
+            }
+          } catch {
+            setToast("Chua ket noi duoc kho du lieu chung.");
+          }
+        }
+
+        if (!forceUpload && records.length > 0) return;
+
         const response = await fetch("/database.xlsx", { cache: "no-store" });
         if (!response.ok) throw new Error("Database file not found");
         const result = importExcelBuffer(await response.arrayBuffer());
@@ -84,10 +110,40 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const persistRecords = (nextRecords: CheckinRecord[]) => {
+  useEffect(() => {
+    if (!isRemoteSyncEnabled || uatMode) return;
+
+    let stopped = false;
+    const pollRemoteRecords = async () => {
+      try {
+        const remote = await loadRemoteRecords();
+        if (!stopped && remote.records.length > 0 && JSON.stringify(remote.records) !== JSON.stringify(recordsRef.current)) {
+          setRecords(remote.records);
+          saveRecords(remote.records);
+          setUatRecords(remote.records);
+          recordsRef.current = remote.records;
+        }
+      } catch {
+        // Keep the local copy usable if the network is temporarily unavailable.
+      }
+    };
+
+    const timer = window.setInterval(pollRemoteRecords, 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [uatMode]);
+
+  const persistRecords = (nextRecords: CheckinRecord[], options: { remote?: boolean } = {}) => {
     setRecords(nextRecords);
     saveRecords(nextRecords);
     setUatRecords(nextRecords);
+    recordsRef.current = nextRecords;
+
+    if (options.remote !== false && isRemoteSyncEnabled) {
+      void saveRemoteRecords(nextRecords).catch(() => setToast("Chua dong bo duoc du lieu chung."));
+    }
   };
 
   const persistActiveRecords = (nextRecords: CheckinRecord[]) => {
