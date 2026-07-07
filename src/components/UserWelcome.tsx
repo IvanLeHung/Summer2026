@@ -45,7 +45,7 @@ export default function UserWelcome({ hasData, onSubmit }: Props) {
           <h1 className="mt-3 text-2xl font-bold leading-snug text-slate-950">Chào mừng đến với</h1>
           <h2 className="mt-1 text-3xl font-black leading-tight text-brand-700">Mùa Du Lịch 2026</h2>
           <p className="mt-5 text-sm leading-7 text-slate-600">
-            Chào mừng các thành viên của Tập đoàn Danko Group! Các bạn đã thực sự sẵn sàng cho kỳ nghỉ tuyệt vời năm nay. Trước tiên, hãy vui lòng thực hiện <span className="font-bold text-slate-800">check-in đúng hạn</span> để hành trình diễn ra suôn sẻ và đảm bảo quyền lợi.
+            Chào mừng các thành viên của Tập đoàn Danko Group! Các bạn đã thực sự sẵn sàng cho kỳ nghỉ tuyệt vời năm nay chưa? Trước tiên, hãy vui lòng thực hiện <span className="font-bold text-slate-800">check-in đúng hạn</span> để hành trình diễn ra suôn sẻ và đảm bảo quyền lợi.
           </p>
           <div className="mt-5 rounded-r-2xl border-l-4 border-amber-400 bg-amber-50 p-4 text-left">
             <div className="flex gap-2.5">
@@ -77,7 +77,7 @@ export default function UserWelcome({ hasData, onSubmit }: Props) {
                   : "top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:font-bold peer-focus:text-brand-600"
               }`}
             >
-              Nhập số điện thoại
+              Nhập số điện thoại đã đăng ký với BTC
             </span>
           </label>
           <button className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 text-base font-extrabold text-white shadow-sm transition hover:bg-brand-700 active:bg-brand-700">
