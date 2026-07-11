@@ -1,4 +1,4 @@
-import { AlertTriangle, Bus, CheckCircle, Clock, Coffee, LogOut, Moon, PartyPopper, Trophy, UserRound, Utensils } from "lucide-react";
+import { AlertTriangle, Bus, CalendarDays, CheckCircle, Clock, Coffee, Hotel, LogOut, MapPin, Moon, PartyPopper, Sparkles, Trophy, UserRound, Utensils } from "lucide-react";
 import { ActivityConfig, CheckinRecord } from "../types/checkin";
 import {
   getApplicableActivitiesForRecord,
@@ -98,6 +98,70 @@ const getActivityIcon = (activityId: string) => {
   return Moon;
 };
 
+const travelSchedule = [
+  {
+    day: "12.07.2026",
+    items: [
+      { time: "05:30", title: "Hà Nội xuất phát", detail: "Di chuyển tới Sầm Sơn, Thanh Hóa", icon: Bus },
+      { time: "11:30", title: "Ăn trưa tại khách sạn", detail: "Ổn định đoàn theo xe", icon: Utensils },
+      { time: "13:30", title: "Tập kết team building", detail: "Khu vực tổ chức chương trình", icon: MapPin },
+      { time: "14:00", title: "Team building", detail: "Best Mode On", icon: Sparkles },
+      { time: "15:35", title: "Về khách sạn check-in", detail: "Nhận phòng và nghỉ ngơi", icon: Hotel },
+      { time: "17:00", title: "Di chuyển tới khách sạn Anyla", detail: "Chuẩn bị Gala Dinner", icon: Bus },
+      { time: "18:30", title: "Gala Dinner", detail: "DANKO SHINE", icon: PartyPopper },
+    ],
+  },
+  {
+    day: "13.07.2026",
+    items: [
+      { time: "Sáng", title: "Tự do tham quan, mua sắm", detail: "CBNV chủ động theo lịch đoàn", icon: MapPin },
+      { time: "10:30 - 12:00", title: "Check-out và di chuyển ăn trưa", detail: "Hoàn tất trả phòng", icon: Utensils },
+      { time: "13:30", title: "Di chuyển về Hà Nội và các tỉnh", detail: "Tập trung theo xe", icon: Bus },
+    ],
+  },
+];
+
+function TravelScheduleCard() {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/80 p-4 sm:p-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+          <CalendarDays className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-wider text-blue-700">Lịch trình sự kiện</p>
+          <h2 className="truncate text-lg font-black text-slate-950">DANKO SHINE - Thắp lửa niềm tin</h2>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 sm:p-5">
+        {travelSchedule.map((day) => (
+          <div key={day.day}>
+            <p className="mb-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+              Ngày {day.day}
+            </p>
+            <div className="grid gap-2">
+              {day.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={`${day.day}-${item.time}-${item.title}`} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5">
+                    <span className="w-20 shrink-0 text-xs font-black text-slate-900">{item.time}</span>
+                    <Icon className="h-4 w-4 shrink-0 text-blue-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-slate-950">{item.title}</p>
+                      <p className="truncate text-xs font-semibold text-slate-500">{item.detail}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 const toDisplayName = (name?: string, fallback?: string) => {
   const rawName = (name || fallback || "").trim();
   if (!rawName) return "anh/chị";
@@ -157,7 +221,7 @@ export default function UserCheckin({ phone, people, allRecords, onCheckIn, onRe
         </div>
       </div>
 
-      {leaderRecords.length ? <LeaderVehiclePanel leaders={leaderRecords} records={allRecords} onReportIssue={onReportIssue} /> : null}
+      {leaderRecords.length ? <LeaderVehiclePanel leaders={leaderRecords} records={allRecords} onReportIssue={onReportIssue} /> : <TravelScheduleCard />}
 
       {people.map((person) => {
         const personActivities = getApplicableActivitiesForRecord(person);
